@@ -4,3 +4,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_FLAGS_DEBUG  "-ggdb3")
 add_executable(Tetris main.cpp)
+
+find_package(SDL2 REQUIRED)
+target_include_directories(Tetris SYSTEM PRIVATE ${SDL2_INCLUDE_DIRS})
+target_link_libraries(Tetris PRIVATE ${SDL2_LIBRARIES})
