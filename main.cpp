@@ -265,11 +265,28 @@ int SDLMAIN_DECLSPEC main(int argc, char *argv[])
                 switch (event.key.keysym.scancode)
                 {
                     case SDL_SCANCODE_ESCAPE: goto end;
-                    case SDL_SCANCODE_LEFT: block.moveLeft(); break;
-                    case SDL_SCANCODE_RIGHT: block.moveRight(); break;
-                    case SDL_SCANCODE_DOWN: block.moveDown(); break;
-                    case SDL_SCANCODE_PAGEDOWN: block.rotateRight(); break;
-                    case SDL_SCANCODE_PAGEUP: block.rotateRight(); break;
+
+                    case SDL_SCANCODE_A:
+                    case SDL_SCANCODE_LEFT:
+                        block.moveLeft();
+                        break;
+                    case SDL_SCANCODE_D:
+                    case SDL_SCANCODE_RIGHT:
+                        block.moveRight();
+                        break;
+                    case SDL_SCANCODE_S:
+                    case SDL_SCANCODE_DOWN:
+                        block.moveDown();
+                        break;
+
+                    case SDL_SCANCODE_E:
+                    case SDL_SCANCODE_PAGEDOWN:
+                        block.rotateRight();
+                        break;
+                    case SDL_SCANCODE_Q:
+                    case SDL_SCANCODE_PAGEUP:
+                        block.rotateLeft();
+                        break;
                 }
             }
         }
