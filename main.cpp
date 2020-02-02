@@ -1,5 +1,7 @@
+#include <cassert>
 #include <ctime>
 #include <iostream>
+#include <vector>
 #include <SDL2/SDL.h>
 
 struct Color { int r, g, b, a; };
@@ -55,6 +57,64 @@ void drawMap(SDL_Renderer* renderer)
     }
 }
 
+class Block
+{
+public:
+    Block(size_t width, size_t height, std::vector<bool>&& fields)
+        : m_fields{std::move(fields)}
+        , m_width{width}, m_height{height}
+        , m_x{::width / 2 - m_width / 2}, m_y{5u}
+    {
+        assert(m_width * m_height == m_fields.size());
+    }
+
+    void genColor() { m_color = rand() % std::size(colors); }
+    void show()
+    {
+        for (size_t y = 0; y < m_height; ++y) for (size_t x = 0; x < m_width; ++x)
+            if (m_fields[y * m_width + x])
+                map[m_y + y][m_x + x] = m_color;
+    }
+
+    void hide()
+    {
+        for (size_t y = 0; y < m_height; ++y) for (size_t x = 0; x < m_width; ++x)
+            if (m_fields[y * m_width + x])
+                map[m_y + y][m_x + x] = 0xFF;
+    }
+
+
+    void moveLeft()
+    {
+        if (m_x)
+        {
+            hide();
+            --m_x;
+            show();
+        }
+    }
+    void moveRight()
+    {
+        if(m_x + m_width < width)
+        {
+            hide();
+            ++m_x;
+            show();
+        }
+    }
+private:
+    std::vector<bool> m_fields;
+    size_t m_width;
+    size_t m_height;
+
+    size_t m_x;
+    size_t m_y;
+    size_t m_color;
+};
+
+const Block sblock { 3, 2, { 0, 1, 1,
+                             1, 1, 0 } };
+
 int SDLMAIN_DECLSPEC main(int argc, char *argv[])
 {
     if (const int ec = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER); ec < 0)
@@ -65,9 +125,6 @@ int SDLMAIN_DECLSPEC main(int argc, char *argv[])
 
     srand(time(nullptr));
     std::fill_n(&map[0][0], width * height, 0xFF);
-    for (auto& row : map) for (auto& cell : row)
-        if (rand() < (RAND_MAX / 2))
-            cell = rand() % std::size(colors);        
 
     SDL_Window * window;
     SDL_Renderer * renderer;
@@ -77,12 +134,26 @@ int SDLMAIN_DECLSPEC main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
+    Block block = sblock;
+    block.genColor();
+    block.show();
     for(;;)
     {
         SDL_Event event;
-        SDL_PollEvent(&event);
-        if (event.type == SDL_QUIT) {
-            return EXIT_SUCCESS;
+        if (SDL_PollEvent(&event))
+        {
+            if (event.type == SDL_QUIT)
+                break;
+            
+            if (event.type == SDL_KEYDOWN)
+            {
+                switch (event.key.keysym.scancode)
+                {
+                    case SDL_SCANCODE_ESCAPE: goto end;
+                    case SDL_SCANCODE_LEFT: block.moveLeft(); break;
+                    case SDL_SCANCODE_RIGHT: block.moveRight(); break;
+                }
+            }
         }
 
         SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, SDL_ALPHA_OPAQUE);
@@ -91,9 +162,10 @@ int SDLMAIN_DECLSPEC main(int argc, char *argv[])
         drawMap(renderer);
         SDL_RenderPresent(renderer);
     }
+    end:
 
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_Quit();
-    return 0;
+    return EXIT_SUCCESS;
 }
