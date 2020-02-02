@@ -2,6 +2,7 @@
 #include <ctime>
 #include <iostream>
 #include <vector>
+#include <algorithm>
 #include <SDL2/SDL.h>
 #include "DeltaMeasurer.hpp"
 
@@ -56,6 +57,24 @@ void drawMap(SDL_Renderer* renderer)
             }
         }
     }
+}
+
+size_t checkMap()
+{
+    size_t cleared = 0;
+    for (int y = 0; y < height; ++y)
+    {
+        if (std::all_of(std::begin(map[y]), std::end(map[y]),
+            [](auto&& cell) { return cell != 0xFF; }))
+        {
+            ++cleared;
+            if (y != 0)
+                std::copy_backward(&map[0][0], &map[y][0], &map[y+1][0]);
+        }
+    }
+
+    std::fill_n(&map[0][0], cleared * width, 0xFFu);
+    return cleared;
 }
 
 class Block
@@ -259,6 +278,7 @@ int SDLMAIN_DECLSPEC main(int argc, char *argv[])
         {
             if (!block.moveDown())
             {
+                checkMap();
                 block = getRandomBlock();
                 block.show();
                 blockTimer = 0.0;
