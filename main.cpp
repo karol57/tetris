@@ -3,6 +3,7 @@
 #include <iostream>
 #include <vector>
 #include <SDL2/SDL.h>
+#include "DeltaMeasurer.hpp"
 
 struct Color { int r, g, b, a; };
 
@@ -12,13 +13,13 @@ constexpr int height = 32;
 constexpr int rWidth = width * (blockSize + 1) - 1;
 constexpr int rHeight = height * (blockSize + 1) - 1;
 Color colors[] = {
-    { 128, 0, 128, SDL_ALPHA_OPAQUE },
-    { 255, 0, 0, SDL_ALPHA_OPAQUE },
-    { 257, 127, 0, SDL_ALPHA_OPAQUE },
-    { 0, 255, 0, SDL_ALPHA_OPAQUE },
-    { 0, 255, 255, SDL_ALPHA_OPAQUE },
-    { 0, 0, 255, SDL_ALPHA_OPAQUE },
-    { 255, 255, 255, SDL_ALPHA_OPAQUE }
+    { 128, 0, 128, SDL_ALPHA_OPAQUE },  // purple
+    { 255, 0, 0, SDL_ALPHA_OPAQUE },    // red
+    { 255, 127, 0, SDL_ALPHA_OPAQUE },  // orange
+    { 0, 255, 0, SDL_ALPHA_OPAQUE },    // green
+    { 0, 255, 255, SDL_ALPHA_OPAQUE },  // cyan
+    { 0, 0, 255, SDL_ALPHA_OPAQUE },    // blue
+    { 255, 255, 255, SDL_ALPHA_OPAQUE } // white
 };
 uint8_t map[height][width];
 
@@ -60,10 +61,10 @@ void drawMap(SDL_Renderer* renderer)
 class Block
 {
 public:
-    Block(size_t width, size_t height, std::vector<bool>&& fields)
+    Block(int width, int height, std::vector<bool>&& fields)
         : m_fields{std::move(fields)}
         , m_width{width}, m_height{height}
-        , m_x{::width / 2 - m_width / 2}, m_y{5u}
+        , m_x{::width / 2 - m_width / 2}, m_y{0}
     {
         assert(m_width * m_height == m_fields.size());
     }
@@ -86,29 +87,54 @@ public:
 
     void moveLeft()
     {
-        if (m_x)
-        {
-            hide();
-            --m_x;
-            show();
-        }
+        hide();
+        --m_x;
+        if (isColliding())
+            ++m_x;
+        show();
     }
     void moveRight()
     {
-        if(m_x + m_width < width)
+        hide();
+        ++m_x;
+        if (isColliding())
+            --m_x;
+        show();
+    }
+    bool moveDown()
+    {
+        hide();
+        ++m_y;
+
+        if (isColliding())
         {
-            hide();
-            ++m_x;
+            --m_y;
             show();
+            return false;
         }
+
+        show();
+        return true;
+    }
+
+    bool isColliding()
+    {
+        if(m_x < 0 || m_y < 0 || m_x + m_width > width || m_y + m_height > height)
+            return true;
+        
+        for (size_t y = 0; y < m_height; ++y)
+            for (size_t x = 0; x < m_width; ++x)
+                if (m_fields[y * m_width + x] && map[m_y + y][m_x + x] != 0xFF)
+                    return true;
+        return false;
     }
 private:
     std::vector<bool> m_fields;
-    size_t m_width;
-    size_t m_height;
+    int m_width;
+    int m_height;
 
-    size_t m_x;
-    size_t m_y;
+    int m_x;
+    int m_y;
     size_t m_color;
 };
 
@@ -128,17 +154,25 @@ int SDLMAIN_DECLSPEC main(int argc, char *argv[])
 
     SDL_Window * window;
     SDL_Renderer * renderer;
-    if (SDL_CreateWindowAndRenderer(rWidth, rHeight, 0, &window, &renderer) != 0)
+    if (SDL_CreateWindowAndRenderer(rWidth, rHeight, SDL_WINDOW_OPENGL, &window, &renderer) != 0)
     {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Couldn't create window and renderer: %s", SDL_GetError());
         return EXIT_FAILURE;
     }
 
+    DeltaMeasurer dm;
+    const double blockSpeed = 0.25;
+    double blockTimer = 0.0;
     Block block = sblock;
     block.genColor();
     block.show();
-    for(;;)
+    for(;;dm.tick())
     {
+        const double delta = dm.delta();
+        char buffer[256];
+        snprintf(buffer, 256, "FPS: %8.2f", dm.fps());
+        SDL_SetWindowTitle(window, buffer);
+
         SDL_Event event;
         if (SDL_PollEvent(&event))
         {
@@ -152,10 +186,22 @@ int SDLMAIN_DECLSPEC main(int argc, char *argv[])
                     case SDL_SCANCODE_ESCAPE: goto end;
                     case SDL_SCANCODE_LEFT: block.moveLeft(); break;
                     case SDL_SCANCODE_RIGHT: block.moveRight(); break;
+                    case SDL_SCANCODE_DOWN: block.moveDown(); break;
                 }
             }
         }
-
+        
+        for (blockTimer += delta; blockTimer > blockSpeed; blockTimer -= blockSpeed)
+        {
+            if (!block.moveDown())
+            {
+                block = sblock;
+                block.genColor();
+                block.show();
+                blockTimer = 0.0;
+                break;
+            }
+        }
         SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, SDL_ALPHA_OPAQUE);
         SDL_RenderClear(renderer);
         drawBackground(renderer);
